@@ -1,0 +1,32 @@
+# CI：语法检查 + 单元测试
+# 宿主相关用例在无宿主环境下自动 SKIP；macOS 专属用例（codesign / .app bundle）在 Linux 上跳过。
+name: CI
+run-name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 语法检查
+        run: |
+          for f in lib/*.js client.js bin/*.js tools/*.mjs tools/test/*.mjs scripts/*.mjs; do
+            node --check "$f" || exit 1
+          done
+      - name: 单元测试（宿主相关项会自动 SKIP）
+        run: node tools/test/run-all.mjs
+      - name: 失败时输出细节
+        if: failure()
+        run: |
+          echo "## 失败细节" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          node tools/test/run-all.mjs 2>&1 | grep -A 12 "FAIL" >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
