@@ -1,0 +1,24 @@
+# DSH-COCO
+
+> DeepSeek Harness 插件：补丁式接管审批与沙箱、提示词分档注入、自带红队演练台。
+
+## About
+
+改宿主源码实现审批放行与沙箱放开（86 条补丁，可回滚），提示词按 token 预算分五档注入，
+运行时代理接管 approval 服务（不依赖源码补丁），附带 6 项启动自检、33 层旁路表、注入探针、
+流层重试与 Ed25519 签名发布链。实测平台：macOS 桌面、dsh web。
+
+## Links
+
+- Repo: https://github.com/77vw/dsh-purge-coco
+- License: MIT
+- Upstream: dsh-purge 1.1.71 public archive (author: YuJunZhiXue)
+
+## Docs
+
+- README.md — 快速开始、能力、平台、配置
+- docs/ARCHITECTURE.md — 代码结构
+- docs/AUDIT.md — 工程体检与优化路线
+- docs/EVAL-REPORT.md — 提示词评测数据
+- docs/DISTRIBUTION.md — 签名与发布
+- PROVENANCE.md — 逐项来源

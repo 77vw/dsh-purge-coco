@@ -1,0 +1,25 @@
+# 依赖
+node_modules/
+# 本地缓存：asar 解包副本、dryrun/locate 报告、临时 DSH_HOME
+.cache/
+# 备份文件
+*.bak
+*.bak-*
+# 系统
+.DS_Store
+
+# 人设与提示词：不进公开仓库
+lib/default-prompt-inject.md
+lib/default-prompt-inject.zh.md
+lib/default-prompt-inject.en.md
+lib/default-prompt-inject.md.bak
+lib/asset-table.js
+# 签名私钥（应该在 ~/.dsh 下，双保险）
+*.pem
+coco-signing-key*
+
+# 评测产物与变体（由提示词本地生成，不进仓库）
+tools/eval/variants/
+tools/eval/out/
+# 发布产物走 Release 附件，不进仓库
+dist/
