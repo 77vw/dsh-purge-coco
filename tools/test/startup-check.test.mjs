@@ -18,7 +18,7 @@ let r = await runStartupCheck({
   guardReport: () => ({ confirmed: true, changed: 0, missing: 0 }),
   lastTier: () => ({ tier: "full", tokens: 6521 }),
 });
-ok("全绿 ok=5", r.ok === 5 && r.error === 0 && r.warn === 0, JSON.stringify(r.checks.patches));
+ok("全绿 ok=6", r.ok === 6 && r.error === 0 && r.warn === 0, JSON.stringify(r.checks.patches));
 ok("补丁明细含生效数", r.checks.patches.detail.includes("69/74"));
 
 // 运行时缺两个
@@ -48,7 +48,7 @@ ok("守卫不符记 error", r.checks.guard.level === "error");
 // 落盘与读取
 const fp = reportPath(home);
 ok("报告落盘", fs.existsSync(fp));
-ok("能读回同一份", readStartupCheck(home)?.total === 5);
+ok("能读回同一份", readStartupCheck(home)?.total === 6);
 
 // gatherState 抛错不炸
 r = await runStartupCheck({
