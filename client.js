@@ -10,8 +10,50 @@ window.__ModuleLoader__.load({ id: "dsh-coco", factory: (require) => {
 		const name = "dsh-coco";
 		const inject = ["slots", "locale"];
 		const NS = "settings.dsh-coco";
+		// 界面语言偏好：空 = 跟随宿主；"zh" / "en" = 在 coco 页面内强制覆盖
+		const COCO_LANG_KEY = "dsh-coco:lang";
 		let translate = (key) => key;
+		let cocoHostTranslate = null;
+		let cocoDicts = { zh: {}, en: {} };
+
+		function cocoLangPref() {
+			try { return localStorage.getItem(COCO_LANG_KEY) || ""; } catch { return ""; }
+		}
+		function cocoFormat(s, params) {
+			if (!params || typeof params !== "object") return s;
+			let out = s;
+			for (const k of Object.keys(params)) out = out.split("{" + k + "}").join(String(params[k]));
+			return out;
+		}
+		function cocoRebuildTranslate() {
+			const host = cocoHostTranslate || ((key) => key);
+			const pref = cocoLangPref();
+			const dict = pref === "en" ? cocoDicts.en : pref === "zh" ? cocoDicts.zh : null;
+			translate = function (key, params) {
+				if (dict && typeof dict[key] === "string") return cocoFormat(dict[key], params);
+				return host(key, params);
+			};
+		}
+		function cocoSetHostTranslate(hostT, dicts) {
+			cocoHostTranslate = hostT || ((key) => key);
+			if (dicts) cocoDicts = dicts;
+			cocoRebuildTranslate();
+		}
+		function setCocoLangPref(v) {
+			try {
+				if (v) localStorage.setItem(COCO_LANG_KEY, v);
+				else localStorage.removeItem(COCO_LANG_KEY);
+			} catch { /* ignore */ }
+			cocoRebuildTranslate();
+			try { window.dispatchEvent(new Event("dsh-coco:lang-change")); } catch { /* ignore */ }
+		}
 		function useT() {
+			const [, bump] = useState(0);
+			useEffect(() => {
+				const on = () => bump((x) => x + 1);
+				window.addEventListener("dsh-coco:lang-change", on);
+				return () => window.removeEventListener("dsh-coco:lang-change", on);
+			}, []);
 			return translate;
 		}
 		function clientGuessSurface() {
@@ -9169,7 +9211,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						key: pair[0], type: "button",
 						className: "ccp-tab" + (view === pair[0] ? " on" : ""),
 						onClick: () => setView(pair[0]),
-					}, pair[1])));
+					}, pair[1])), langBtn);
 
 			let body = null;
 			if (view === "clean") {
@@ -9358,7 +9400,20 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 				}
 			}, []);
 			const VIEWS = [["overview", t("set.viewOverview")], ["clean", t("set.viewClean")], ["drill", t("set.viewDrill")]];
-			const navBar = h("div", { style: { display: "flex", gap: 6, marginBottom: 12 } },
+			const _lang = cocoLangPref();
+			const langBtn = h("button", {
+				key: "__lang",
+				type: "button",
+				title: "界面语言 / UI language（AUTO = 跟随宿主）",
+				onClick: () => setCocoLangPref(_lang === "" ? "en" : _lang === "en" ? "zh" : ""),
+				style: {
+					marginLeft: "auto", padding: "4px 10px", borderRadius: 8, fontSize: 12,
+					cursor: "pointer", border: "0.5px solid var(--dsw-alias-border-l3, #ccc)",
+					background: "transparent", color: "inherit", fontWeight: 600,
+					letterSpacing: "0.02em",
+				},
+			}, _lang === "en" ? "EN" : _lang === "zh" ? "中文" : "AUTO");
+			const navBar = h("div", { style: { display: "flex", gap: 6, marginBottom: 12, alignItems: "center" } },
 				VIEWS.map((pair) => h("button", {
 					key: pair[0],
 					type: "button",
@@ -9530,7 +9585,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 		function apply(ctx) {
 			ctx.effect(() => ctx.locale.register(NS, { zh, en }), "dsh-coco: dictionaries");
 			const t = ctx.locale.bind(NS);
-			translate = t;
+			cocoSetHostTranslate(t, { zh, en });
 			try {
 				ctx.slots.inject("main", () => ctx.slots.register({
 					name: "main",
