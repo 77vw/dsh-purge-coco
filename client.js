@@ -10,33 +10,42 @@ window.__ModuleLoader__.load({ id: "dsh-coco", factory: (require) => {
 		const name = "dsh-coco";
 		const inject = ["slots", "locale"];
 		const NS = "settings.dsh-coco";
-		// 界面语言偏好：空 = 跟随宿主；"zh" / "en" = 在 coco 页面内强制覆盖
-		const COCO_LANG_KEY = "dsh-coco:lang";
 		let translate = (key) => key;
+		function useT() {
+			return translate;
+		}
+		const COCO_LANG_KEY = "dsh-coco:lang";
 		let cocoHostTranslate = null;
-		let cocoDicts = { zh: {}, en: {} };
-
+		let cocoDicts = null;
 		function cocoLangPref() {
 			try { return localStorage.getItem(COCO_LANG_KEY) || ""; } catch { return ""; }
 		}
-		function cocoFormat(s, params) {
-			if (!params || typeof params !== "object") return s;
-			let out = s;
-			for (const k of Object.keys(params)) out = out.split("{" + k + "}").join(String(params[k]));
-			return out;
+		function cocoLangLabel() {
+			const p = cocoLangPref();
+			return p === "en" ? "EN" : p === "zh" ? "中文" : "AUTO";
+		}
+		function cocoLangNext() {
+			const p = cocoLangPref();
+			return p === "" ? "en" : p === "en" ? "zh" : "";
 		}
 		function cocoRebuildTranslate() {
 			const host = cocoHostTranslate || ((key) => key);
 			const pref = cocoLangPref();
-			const dict = pref === "en" ? cocoDicts.en : pref === "zh" ? cocoDicts.zh : null;
+			const dict = cocoDicts ? (pref === "en" ? cocoDicts.en : pref === "zh" ? cocoDicts.zh : null) : null;
 			translate = function (key, params) {
-				if (dict && typeof dict[key] === "string") return cocoFormat(dict[key], params);
+				if (dict && typeof dict[key] === "string") {
+					let s = dict[key];
+					if (params && typeof params === "object") {
+						for (const k of Object.keys(params)) s = s.split("{" + k + "}").join(String(params[k]));
+					}
+					return s;
+				}
 				return host(key, params);
 			};
 		}
-		function cocoSetHostTranslate(hostT, dicts) {
-			cocoHostTranslate = hostT || ((key) => key);
-			if (dicts) cocoDicts = dicts;
+		function cocoSetHostTranslate(host, dicts) {
+			cocoHostTranslate = host;
+			cocoDicts = dicts;
 			cocoRebuildTranslate();
 		}
 		function setCocoLangPref(v) {
@@ -45,16 +54,23 @@ window.__ModuleLoader__.load({ id: "dsh-coco", factory: (require) => {
 				else localStorage.removeItem(COCO_LANG_KEY);
 			} catch { /* ignore */ }
 			cocoRebuildTranslate();
-			try { window.dispatchEvent(new Event("dsh-coco:lang-change")); } catch { /* ignore */ }
+			try { location.reload(); } catch { /* ignore */ }
 		}
-		function useT() {
-			const [, bump] = useState(0);
-			useEffect(() => {
-				const on = () => bump((x) => x + 1);
-				window.addEventListener("dsh-coco:lang-change", on);
-				return () => window.removeEventListener("dsh-coco:lang-change", on);
-			}, []);
-			return translate;
+		function cocoLangButton(style) {
+			const label = cocoLangLabel();
+			const hint = "界面语言 / Language — AUTO → EN → 中文";
+			return h("button", {
+				type: "button",
+				"data-coco-lang": label,
+				title: hint,
+				"aria-label": hint,
+				onClick: function () { setCocoLangPref(cocoLangNext()); },
+				style: Object.assign({
+					padding: "4px 12px", borderRadius: 8, fontSize: 12, cursor: "pointer",
+					border: "0.5px solid var(--dsw-alias-border-l3, #ccc)",
+					background: "transparent", color: "inherit", fontWeight: 500
+				}, style || {})
+			}, label);
 		}
 		function clientGuessSurface() {
 			try {
@@ -532,6 +548,75 @@ window.__ModuleLoader__.load({ id: "dsh-coco", factory: (require) => {
 			"continue.ready": "继续（还可 {left} 次）",
 			"continue.limit": "已达继续上限",
 			"continue.fail": "继续失败: {error}",
+			"tone.applied": "生效",
+			"tone.superseded": "已被接管",
+			"tone.skipped": "无载体",
+			"tone.pending": "待应用",
+			"tone.unmatched": "未匹配",
+			"tone.effective": "有效",
+			"tone.takenOver": "已接管",
+			"tone.notTakenOver": "未接管",
+			"tone.unknown": "未知",
+			"page.refreshing": "刷新中…",
+			"page.selfCheck": "启动自检 {ok}/{total}",
+			"page.issues": "{n} 项异常",
+			"page.warnings": "{n} 项待处理",
+			"page.appliedShort": "生效",
+			"page.injectShort": "注入",
+			"page.needsFix": "需修正",
+			"page.restartGuard": "重启守卫",
+			"page.reverted": "已回滚",
+			"page.guardMismatch": "文件与记录不符",
+			"page.guardOk": "上次重启正常",
+			"page.guardPending": "等待重启确认",
+			"page.recordFiles": "记录文件",
+			"page.copies": "副本",
+			"page.changedMissing": "改动 / 缺失",
+			"page.runtimeLayer": "运行时层",
+			"page.takenOverCount": "{done} / {total} 已接管",
+			"page.approval": "审批放行",
+			"page.notInstalled": "未安装",
+			"page.patchStates": "补丁状态",
+			"page.tallySummary": "{applied} 生效 · {skipped} 无载体 · {superseded} 已被接管",
+			"page.effective": "有效",
+			"page.pending": "待应用",
+			"page.noCarrier": "无载体",
+			"page.superseded": "已被接管",
+			"page.unmatched": "未匹配",
+			"page.bypassLayers": "旁路层",
+			"page.layersSummary": "{full}/{total} 层完整",
+			"page.layersPartial": "· {n} 层缺口",
+			"page.naLocal": "本机无载体",
+			"page.missingPrefix": "缺",
+			"page.gap": "缺口",
+			"page.allLayersFull": "全部层完整",
+			"page.probe": "注入探针",
+			"page.probeHint": "生成一次校验码，确认注入真的到了模型",
+			"page.probeCode": "校验码 {code}",
+			"page.notGenerated": "未生成",
+			"page.probeHow": "生成后随便发一条消息，回复第一行应出现这串码",
+			"page.generate": "生成",
+			"page.generated": "已生成",
+			"page.hooksPolicy": "hooks 策略",
+			"page.notLoaded": "未加载",
+			"page.enforceOn": "强制生效",
+			"page.bypassDefault": "旁路（默认）",
+			"page.denyEnforced": "用户 hook 的 deny 会真正拦住调用",
+			"page.denyBypassed": "用户 hook 的 deny 一律放行，只记日志",
+			"page.exceptions": "例外 {n} 条",
+			"page.bypass": "旁路",
+			"page.enforce": "强制",
+			"page.tier": "注入档位",
+			"page.notAssembled": "尚未装配",
+			"page.budget": "预算",
+			"page.unbounded": "不限预算",
+			"page.overBudgetDropped": "超预算丢弃",
+			"page.tierHint": "发一条消息后显示装配档位。",
+			"page.injectChain": "注入链",
+			"page.chainSummary": "共 {n} 段 · 合计 {kb} KB",
+			"page.count": "{n} 条",
+			"page.guardFiles": "{files} 个文件 · {copies} 份副本",
+			"page.presetBadShort": "预设契约不兼容",
 		};
 
 		const en = {
@@ -899,6 +984,75 @@ window.__ModuleLoader__.load({ id: "dsh-coco", factory: (require) => {
 			"continue.ready": "Continue ({left} left)",
 			"continue.limit": "Continue limit reached",
 			"continue.fail": "Continue failed: {error}",
+			"tone.applied": "Applied",
+			"tone.superseded": "Superseded",
+			"tone.skipped": "No carrier",
+			"tone.pending": "Pending",
+			"tone.unmatched": "Unmatched",
+			"tone.effective": "Effective",
+			"tone.takenOver": "Taken over",
+			"tone.notTakenOver": "Not taken over",
+			"tone.unknown": "Unknown",
+			"page.refreshing": "Refreshing…",
+			"page.selfCheck": "Startup self-check {ok}/{total}",
+			"page.issues": "{n} failed",
+			"page.warnings": "{n} pending",
+			"page.appliedShort": "applied",
+			"page.injectShort": "inject",
+			"page.needsFix": "Needs fix",
+			"page.restartGuard": "Restart guard",
+			"page.reverted": "Rolled back",
+			"page.guardMismatch": "Files differ from record",
+			"page.guardOk": "Last restart OK",
+			"page.guardPending": "Awaiting restart confirmation",
+			"page.recordFiles": "Recorded files",
+			"page.copies": "Copies",
+			"page.changedMissing": "Changed / missing",
+			"page.runtimeLayer": "Runtime layer",
+			"page.takenOverCount": "{done} / {total} taken over",
+			"page.approval": "Approval passthrough",
+			"page.notInstalled": "Not installed",
+			"page.patchStates": "Patch states",
+			"page.tallySummary": "{applied} applied · {skipped} no carrier · {superseded} superseded",
+			"page.effective": "Effective",
+			"page.pending": "Pending",
+			"page.noCarrier": "No carrier",
+			"page.superseded": "Superseded",
+			"page.unmatched": "Unmatched",
+			"page.bypassLayers": "Bypass layers",
+			"page.layersSummary": "{full}/{total} layers complete",
+			"page.layersPartial": "· {n} layers with gaps",
+			"page.naLocal": "No carrier on this machine",
+			"page.missingPrefix": "Missing",
+			"page.gap": "Gap",
+			"page.allLayersFull": "All layers complete",
+			"page.probe": "Injection probe",
+			"page.probeHint": "Generate a nonce to verify the injection reached the model",
+			"page.probeCode": "Nonce {code}",
+			"page.notGenerated": "Not generated",
+			"page.probeHow": "After generating, send any message; the first line of the reply should contain this code",
+			"page.generate": "Generate",
+			"page.generated": "Generated",
+			"page.hooksPolicy": "Hooks policy",
+			"page.notLoaded": "Not loaded",
+			"page.enforceOn": "Enforced",
+			"page.bypassDefault": "Bypass (default)",
+			"page.denyEnforced": "User hook deny rules actually block calls",
+			"page.denyBypassed": "User hook deny rules are allowed through and only logged",
+			"page.exceptions": "{n} exceptions",
+			"page.bypass": "Bypass",
+			"page.enforce": "Enforce",
+			"page.tier": "Injection tier",
+			"page.notAssembled": "Not assembled yet",
+			"page.budget": "budget",
+			"page.unbounded": "no budget limit",
+			"page.overBudgetDropped": "Dropped over budget",
+			"page.tierHint": "Send a message to see the assembled tier.",
+			"page.injectChain": "Injection chain",
+			"page.chainSummary": "{n} sections · {kb} KB total",
+			"page.count": "{n} items",
+			"page.guardFiles": "{files} files · {copies} copies",
+			"page.presetBadShort": "Incompatible preset contract",
 		};
 
 		const PURGE_CSS = `
@@ -8848,15 +9002,15 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 
 		// ===== DSH-COCO · 设置页（设置 → 插件 → DSH-COCO）=====
 		const PATCH_TONE = {
-			applied: { mark: "\u2705", label: "生效", tone: "#2f7d4f" },
-			already: { mark: "\u2705", label: "生效", tone: "#2f7d4f" },
-			superseded: { mark: "\u23ed", label: "已被接管", tone: "#8a8a8a" },
-			skipped: { mark: "\u2796", label: "无载体", tone: "#8a8a8a" },
-			pending: { mark: "\u25cb", label: "待应用", tone: "#a06a00" },
-			unmatched: { mark: "\u26a0", label: "未匹配", tone: "#b4302a" }
+			applied: { mark: "\u2705", label: "tone.applied", tone: "#2f7d4f" },
+			already: { mark: "\u2705", label: "tone.applied", tone: "#2f7d4f" },
+			superseded: { mark: "\u23ed", label: "tone.superseded", tone: "#8a8a8a" },
+			skipped: { mark: "\u2796", label: "tone.skipped", tone: "#8a8a8a" },
+			pending: { mark: "\u25cb", label: "tone.pending", tone: "#a06a00" },
+			unmatched: { mark: "\u26a0", label: "tone.unmatched", tone: "#b4302a" }
 		};
 		function cocoTone(status) {
-			return PATCH_TONE[String(status || "")] || { mark: "\u2022", label: String(status || "未知"), tone: "#8a8a8a" };
+			return PATCH_TONE[String(status || "")] || { mark: "\u2022", label: "tone.unknown", tone: "#8a8a8a" };
 		}
 		function cocoTally(rows) {
 			const out = { applied: 0, superseded: 0, skipped: 0, pending: 0, unmatched: 0 };
@@ -9097,7 +9251,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 .ccp-btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
 `;
 
-		const UI_STATE = { ok: "有效", pending: "待应用", nocarrier: "无载体", superseded: "已被接管", unmatched: "未匹配" };
+		const UI_STATE = { ok: "tone.effective", pending: "page.pending", nocarrier: "page.noCarrier", superseded: "page.superseded", unmatched: "page.unmatched" };
 		function uiStateOf(status) {
 			const s2 = String(status || "");
 			if (s2 === "applied" || s2 === "already") return ["ok", UI_STATE.ok];
@@ -9156,7 +9310,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 			const [probeMsg, setProbeMsg] = useState("");
 			const runProbe = () => {
 				apiJson("/dsh-coco/probe", { method: "POST" })
-					.then((r) => { setProbeNonce(r && r.nonce ? r.nonce : ""); setProbeMsg(r && r.hint ? r.hint : "已生成"); })
+					.then((r) => { setProbeNonce(r && r.nonce ? r.nonce : ""); setProbeMsg(r && r.hint ? r.hint : t("page.generated")); })
 					.catch((e) => setProbeMsg(String((e && e.message) || e)));
 			};
 			const setHooksMode = (mode) => {
@@ -9173,12 +9327,12 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 					h("div", { className: "ccp-intro" },
 						h("span", null, (st && st.surface) || "—"),
 						h("span", { className: "ccp-dot" }),
-						h("span", null, String((st && st.patches_applied) || 0) + "/" + String((st && st.patches_total) || 0) + " 生效"),
+						h("span", null, String((st && st.patches_applied) || 0) + "/" + String((st && st.patches_total) || 0) + " " + t("page.appliedShort")),
 						chain ? h("span", { className: "ccp-dot" }) : null,
-						chain ? h("span", null, "注入 " + (Number(chain.injectBytes || 0) / 1024).toFixed(1) + " KB") : null,
+						chain ? h("span", null, t("page.injectShort") + " " + (Number(chain.injectBytes || 0) / 1024).toFixed(1) + " KB") : null,
 						err ? h("span", { style: { color: "var(--dsw-alias-state-error-primary)" } }, " · " + err) : null)),
 				h("div", { className: "ccp-actions" },
-					h("button", { type: "button", className: "ccp-btn", onClick: load, disabled: busy }, busy ? "刷新中…" : "刷新")));
+					h("button", { type: "button", className: "ccp-btn", onClick: load, disabled: busy }, busy ? t("page.refreshing") : t("set.refresh"))));
 
 			const sc = st && st.startup_check;
 			const banner = sc
@@ -9189,9 +9343,9 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						borderRadius: 12, padding: "10px 14px", fontSize: 12
 					}
 				},
-					h("span", { style: { fontWeight: 600 } }, "启动自检 " + sc.ok + "/" + sc.total),
-					sc.error ? h("span", { style: { color: "var(--dsw-alias-state-error-primary)" } }, sc.error + " 项异常") : null,
-					sc.warn ? h("span", { style: { color: "var(--dsw-alias-state-warn-primary)" } }, sc.warn + " 项待处理") : null,
+					h("span", { style: { fontWeight: 600 } }, t("page.selfCheck", { ok: sc.ok, total: sc.total })),
+					sc.error ? h("span", { style: { color: "var(--dsw-alias-state-error-primary)" } }, t("page.issues", { n: sc.error })) : null,
+					sc.warn ? h("span", { style: { color: "var(--dsw-alias-state-warn-primary)" } }, t("page.warnings", { n: sc.warn })) : null,
 					h("span", { style: { flex: 1 } }),
 					...Object.entries(sc.checks || {}).map(([k, v]) =>
 						h("span", {
@@ -9206,12 +9360,13 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 				: null;
 
 			const tabs = h("div", { className: "ccp-tabs" },
-				[["overview", "概览"], ["clean", "清洗台"], ["drill", "演练台"]].map((pair) =>
+				[["overview", t("set.viewOverview")], ["clean", t("set.viewClean")], ["drill", t("set.viewDrill")]].map((pair) =>
 					h("button", {
 						key: pair[0], type: "button",
 						className: "ccp-tab" + (view === pair[0] ? " on" : ""),
 						onClick: () => setView(pair[0]),
-					}, pair[1])), langBtn);
+					}, pair[1])),
+				cocoLangButton({ marginLeft: "auto" }));
 
 			let body = null;
 			if (view === "clean") {
@@ -9225,103 +9380,103 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 							className: "coco-embed",
 							style: { width: "100%", height: "calc(100vh - 300px)", minHeight: 560, display: "flex", flexDirection: "column" }
 						}, h(panel, { embedded: true }))
-						: h("div", { className: "ccp-empty" }, "演练台模块未加载。"));
+						: h("div", { className: "ccp-empty" }, t("set.drillMissing")));
 			} else {
 				body = h("div", { className: "ccp-body" },
 					presetIssues.length > 0 ? h("section", { className: "ccp-sec" },
-						h("div", { className: "ccp-sec-head" }, h("h2", { className: "ccp-sec-title", style: { color: "var(--dsw-alias-state-error-primary)" } }, "预设契约不兼容")),
+						h("div", { className: "ccp-sec-head" }, h("h2", { className: "ccp-sec-title", style: { color: "var(--dsw-alias-state-error-primary)" } }, t("page.presetBadShort"))),
 						h("ul", { className: "ccp-rows" }, presetIssues.map((it, i) => h("li", { key: String(it.preset) + i, className: "ccp-row" },
 							h("div", { className: "ccp-row-main" },
 								h("div", { className: "ccp-row-id" }, String(it.preset)),
 								h("div", { className: "ccp-row-sub" }, String(it.file).split("/").slice(-2).join("/") + ":" + String(it.line) + "  " + String(it.key))),
-							h("span", { className: "ccp-row-state bad" }, "需修正"))))) : null,
+							h("span", { className: "ccp-row-state bad" }, t("page.needsFix")))))) : null,
 					guard ? h("section", { className: "ccp-sec" },
 						h("div", { className: "ccp-sec-head" },
-							h("h2", { className: "ccp-sec-title" }, "重启守卫"),
+							h("h2", { className: "ccp-sec-title" }, t("page.restartGuard")),
 							h("span", { className: "ccp-sec-count" },
-								guard.reverted ? "已回滚" : guard.confirmed ? (guard.changed || guard.missing ? "文件与记录不符" : "上次重启正常") : "等待重启确认")),
+								guard.reverted ? t("page.reverted") : guard.confirmed ? (guard.changed || guard.missing ? t("page.guardMismatch") : t("page.guardOk")) : t("page.guardPending"))),
 						h("dl", { className: "ccp-facts" },
-							h("div", null, h("dt", null, "记录文件"), h("dd", null, String(guard.files || 0))),
-							h("div", null, h("dt", null, "副本"), h("dd", null, String(guard.copyable || 0))),
-							h("div", null, h("dt", null, "改动 / 缺失"), h("dd", null, String(guard.changed || 0) + " / " + String(guard.missing || 0))))) : null,
+							h("div", null, h("dt", null, t("page.recordFiles")), h("dd", null, String(guard.files || 0))),
+							h("div", null, h("dt", null, t("page.copies")), h("dd", null, String(guard.copyable || 0))),
+							h("div", null, h("dt", null, t("page.changedMissing")), h("dd", null, String(guard.changed || 0) + " / " + String(guard.missing || 0))))) : null,
 					h("section", { className: "ccp-sec" },
 						h("div", { className: "ccp-sec-head" },
-							h("h2", { className: "ccp-sec-title" }, "运行时层"),
+							h("h2", { className: "ccp-sec-title" }, t("page.runtimeLayer")),
 							h("span", { className: "ccp-sec-count" }, (function () {
 								const lg = (st && st.runtime_ledger) || [];
 								const done = lg.filter((x) => x.state === "runtime" && x.installed).length;
-								return done + " / " + lg.filter((x) => x.state === "runtime").length + " 已接管";
+								return t("page.takenOverCount", { done: done, total: lg.filter((x) => x.state === "runtime").length });
 							})())),
 						h("ul", { className: "ccp-rows" },
-							[["approval", "审批放行"]].map((pair) => {
+							[["approval", t("page.approval")]].map((pair) => {
 								const item = (st && st.runtime_layer && st.runtime_layer[pair[0]]) || null;
 								const bad = !item || !item.ok;
 								return h("li", { key: pair[0], className: "ccp-row" },
 									h("div", { className: "ccp-row-main" },
 										h("div", { className: "ccp-row-id" }, pair[1]),
-										h("div", { className: "ccp-row-sub" }, item ? String(item.detail || "") : "未安装")),
-									h("span", { className: "ccp-row-state" + (bad ? " bad" : " ok") }, bad ? "未接管" : "已接管"));
+										h("div", { className: "ccp-row-sub" }, item ? String(item.detail || "") : t("page.notInstalled"))),
+									h("span", { className: "ccp-row-state" + (bad ? " bad" : " ok") }, bad ? t("tone.notTakenOver") : t("tone.takenOver")));
 							}))),
 					h("section", { className: "ccp-sec" },
 						h("div", { className: "ccp-sec-head" },
-							h("h2", { className: "ccp-sec-title" }, "补丁状态"),
-							h("span", { className: "ccp-sec-count" }, String(tally.applied) + " 生效 · " + String(tally.skipped) + " 无载体 · " + String(tally.superseded) + " 已被接管")),
+							h("h2", { className: "ccp-sec-title" }, t("page.patchStates")),
+							h("span", { className: "ccp-sec-count" }, t("page.tallySummary", { applied: tally.applied, skipped: tally.skipped, superseded: tally.superseded }))),
 						h("dl", { className: "ccp-facts" },
-							h("div", null, h("dt", null, "有效"), h("dd", null, String(tally.applied))),
-							h("div", null, h("dt", null, "待应用"), h("dd", null, String(tally.pending))),
-							h("div", null, h("dt", null, "无载体"), h("dd", null, String(tally.skipped))),
-							h("div", null, h("dt", null, "已被接管"), h("dd", null, String(tally.superseded))),
-							h("div", null, h("dt", null, "未匹配"), h("dd", { style: tally.unmatched ? { color: "var(--dsw-alias-state-error-primary)" } : null }, String(tally.unmatched))))),
+							h("div", null, h("dt", null, t("page.effective")), h("dd", null, String(tally.applied))),
+							h("div", null, h("dt", null, t("page.pending")), h("dd", null, String(tally.pending))),
+							h("div", null, h("dt", null, t("page.noCarrier")), h("dd", null, String(tally.skipped))),
+							h("div", null, h("dt", null, t("page.superseded")), h("dd", null, String(tally.superseded))),
+							h("div", null, h("dt", null, t("page.unmatched")), h("dd", { style: tally.unmatched ? { color: "var(--dsw-alias-state-error-primary)" } : null }, String(tally.unmatched))))),
 					(st && st.layers && st.layers.summary)
 						? h("section", { className: "ccp-sec" },
 							h("div", { className: "ccp-sec-head" },
-								h("h2", { className: "ccp-sec-title" }, "旁路层"),
-								h("span", { className: "ccp-sec-count" }, st.layers.summary.full + "/" + st.layers.summary.total + " 层完整" + (st.layers.summary.partial ? " · " + st.layers.summary.partial + " 层缺口" : ""))),
+								h("h2", { className: "ccp-sec-title" }, t("page.bypassLayers")),
+								h("span", { className: "ccp-sec-count" }, t("page.layersSummary", { full: st.layers.summary.full, total: st.layers.summary.total }) + (st.layers.summary.partial ? " " + t("page.layersPartial", { n: st.layers.summary.partial }) : ""))),
 							h("ul", { className: "ccp-rows" },
 								(st.layers.rows || []).filter((l) => l.state !== "full").slice(0, 8).map((l) =>
 									h("li", { key: l.key, className: "ccp-row", title: l.why },
 										h("div", { className: "ccp-row-main" },
 											h("div", { className: "ccp-row-id" }, l.title),
-											h("div", { className: "ccp-row-sub" }, l.state === "na" ? "本机无载体" : "缺 " + l.bad.map((b) => "#" + b.id).join(" "))),
-										h("span", { className: "ccp-row-state" + (l.state === "na" ? "" : " bad") }, l.state === "na" ? "无载体" : "缺口"))),
+											h("div", { className: "ccp-row-sub" }, l.state === "na" ? t("page.naLocal") : t("page.missingPrefix") + " " + l.bad.map((b) => "#" + b.id).join(" "))),
+										h("span", { className: "ccp-row-state" + (l.state === "na" ? "" : " bad") }, l.state === "na" ? t("page.noCarrier") : t("page.gap")))),
 								(st.layers.summary.partial === 0 && st.layers.summary.na === 0)
-									? h("li", { className: "ccp-row" }, h("div", { className: "ccp-row-main" }, h("div", { className: "ccp-row-id" }, "全部层完整")))
+									? h("li", { className: "ccp-row" }, h("div", { className: "ccp-row-main" }, h("div", { className: "ccp-row-id" }, t("page.allLayersFull"))))
 									: null))
 						: null,
 					h("section", { className: "ccp-sec" },
 						h("div", { className: "ccp-sec-head" },
-							h("h2", { className: "ccp-sec-title" }, "注入探针"),
-							h("span", { className: "ccp-sec-count" }, probeMsg || "生成一次校验码，确认注入真的到了模型")),
+							h("h2", { className: "ccp-sec-title" }, t("page.probe")),
+							h("span", { className: "ccp-sec-count" }, probeMsg || t("page.probeHint"))),
 						h("ul", { className: "ccp-rows" },
 							h("li", { className: "ccp-row" },
 								h("div", { className: "ccp-row-main" },
-									h("div", { className: "ccp-row-id" }, probeNonce ? "校验码 " + probeNonce : "未生成"),
-									h("div", { className: "ccp-row-sub" }, "生成后随便发一条消息，回复第一行应出现这串码")),
+									h("div", { className: "ccp-row-id" }, probeNonce ? t("page.probeCode", { code: probeNonce }) : t("page.notGenerated")),
+									h("div", { className: "ccp-row-sub" }, t("page.probeHow"))),
 								h("span", { className: "ccp-actions" },
-									h("button", { type: "button", className: "ccp-btn", onClick: runProbe }, "生成"))))),
+									h("button", { type: "button", className: "ccp-btn", onClick: runProbe }, t("page.generate")))))),
 					h("section", { className: "ccp-sec" },
 						h("div", { className: "ccp-sec-head" },
-							h("h2", { className: "ccp-sec-title" }, "hooks 策略"),
+							h("h2", { className: "ccp-sec-title" }, t("page.hooksPolicy")),
 							h("span", { className: "ccp-sec-count" }, (function () {
 								const hp = st && st.hooks_policy;
-								if (!hp) return "未加载";
-								return hp.mode === "enforce" ? "强制生效" : "旁路（默认）";
+								if (!hp) return t("page.notLoaded");
+								return hp.mode === "enforce" ? t("page.enforceOn") : t("page.bypassDefault");
 							})())),
 						h("ul", { className: "ccp-rows" },
 							h("li", { className: "ccp-row" },
 								h("div", { className: "ccp-row-main" },
-									h("div", { className: "ccp-row-id" }, (st && st.hooks_policy && st.hooks_policy.mode === "enforce") ? "用户 hook 的 deny 会真正拦住调用" : "用户 hook 的 deny 一律放行，只记日志"),
-									h("div", { className: "ccp-row-sub" }, "例外 " + String((st && st.hooks_policy && st.hooks_policy.overrides) || 0) + " 条")),
+									h("div", { className: "ccp-row-id" }, (st && st.hooks_policy && st.hooks_policy.mode === "enforce") ? t("page.denyEnforced") : t("page.denyBypassed")),
+									h("div", { className: "ccp-row-sub" }, t("page.exceptions", { n: String((st && st.hooks_policy && st.hooks_policy.overrides) || 0) }))),
 								h("span", { className: "ccp-actions" },
-									h("button", { type: "button", className: "ccp-btn", onClick: () => setHooksMode("bypass") }, "旁路"),
-									h("button", { type: "button", className: "ccp-btn", onClick: () => setHooksMode("enforce") }, "强制"))))),
+									h("button", { type: "button", className: "ccp-btn", onClick: () => setHooksMode("bypass") }, t("page.bypass")),
+									h("button", { type: "button", className: "ccp-btn", onClick: () => setHooksMode("enforce") }, t("page.enforce")))))),
 					h("section", { className: "ccp-sec" },
 						h("div", { className: "ccp-sec-head" },
-							h("h2", { className: "ccp-sec-title" }, "注入档位"),
+							h("h2", { className: "ccp-sec-title" }, t("page.tier")),
 							h("span", { className: "ccp-sec-count" }, (function () {
 								const ti = st && st.inject_tier;
-								if (!ti) return "尚未装配";
-								return ti.tier + " · " + ti.tokens + " tok" + (ti.budget ? " / 预算 " + ti.budget : " · 不限预算");
+								if (!ti) return t("page.notAssembled");
+								return ti.tier + " · " + ti.tokens + " tok" + (ti.budget ? " / " + t("page.budget") + " " + ti.budget : " · " + t("page.unbounded"));
 							})())),
 						(st && st.inject_tier)
 							? h("ul", { className: "ccp-rows" },
@@ -9330,36 +9485,36 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 									h("span", { className: "ccp-num" }, b.tokens + " tok"))),
 								(st.inject_tier.dropped && st.inject_tier.dropped.length)
 									? h("li", { className: "ccp-row" },
-										h("div", { className: "ccp-row-main" }, h("div", { className: "ccp-row-id", style: { color: "var(--dsw-alias-state-warn-primary)" } }, "超预算丢弃")),
+										h("div", { className: "ccp-row-main" }, h("div", { className: "ccp-row-id", style: { color: "var(--dsw-alias-state-warn-primary)" } }, t("page.overBudgetDropped"))),
 										h("span", { className: "ccp-row-state" }, st.inject_tier.dropped.join(" / ")))
 									: null)
-							: h("div", { className: "ccp-empty" }, "发一条消息后显示装配档位。")),
+							: h("div", { className: "ccp-empty" }, t("page.tierHint"))),
 					h("section", { className: "ccp-sec" },
 						h("div", { className: "ccp-sec-head" },
-							h("h2", { className: "ccp-sec-title" }, "注入链"),
-							h("span", { className: "ccp-sec-count" }, chainRows.length ? "共 " + chainRows.length + " 段 · 合计 " + (Number(chain.totalBytes || 0) / 1024).toFixed(1) + " KB" : "")),
+							h("h2", { className: "ccp-sec-title" }, t("page.injectChain")),
+							h("span", { className: "ccp-sec-count" }, chainRows.length ? t("page.chainSummary", { n: chainRows.length, kb: (Number(chain.totalBytes || 0) / 1024).toFixed(1) }) : "")),
 						chainRows.length === 0
-							? h("div", { className: "ccp-empty" }, busy ? "加载中…" : "还没有装配记录：发一条消息后再刷新。")
+							? h("div", { className: "ccp-empty" }, busy ? t("set.loading") : t("set.chainEmpty"))
 							: h("ul", { className: "ccp-rows" }, chainRows.map((sec, i) => {
 								const dup = Number(sec.dup) || 0;
 								return h("li", { key: String(sec.name) + i, className: "ccp-row" },
 									h("div", { className: "ccp-row-main" },
 										h("div", { className: "ccp-row-id" }, String(sec.name)),
 										h("div", { className: "ccp-row-sub" }, "order " + String(sec.order))),
-									dup > 1 ? h("span", { className: "ccp-row-state bad" }, "×" + dup + " 重复") : null,
+									dup > 1 ? h("span", { className: "ccp-row-state bad" }, "×" + dup + " " + t("set.dup")) : null,
 									h("span", { className: "ccp-num" }, (Number(sec.bytes || 0) / 1024).toFixed(1) + " KB"));
 							}))),
 					h("section", { className: "ccp-sec" },
 						h("div", { className: "ccp-sec-head" },
-							h("h2", { className: "ccp-sec-title" }, "补丁明细"),
-							h("span", { className: "ccp-sec-count" }, String(rows.length) + " 条")),
+							h("h2", { className: "ccp-sec-title" }, t("set.patchList")),
+							h("span", { className: "ccp-sec-count" }, t("page.count", { n: rows.length }))),
 						h("ul", { className: "ccp-rows" }, rows.map((row) => {
 							const tone = uiStateOf(row.status);
 							return h("li", { key: String(row.id) + String(row.layer || ""), className: "ccp-row" },
 								h("div", { className: "ccp-row-main" },
 									h("div", { className: "ccp-row-id" }, row.title || String(row.id)),
 									h("div", { className: "ccp-row-sub" }, "#" + String(row.id) + " · " + String(row.layer || ""))),
-								h("span", { className: "ccp-row-state" + (tone[0] === "ok" ? " ok" : tone[0] === "bad" ? " bad" : "") }, tone[1]));
+								h("span", { className: "ccp-row-state" + (tone[0] === "ok" ? " ok" : tone[0] === "bad" ? " bad" : "") }, t(tone[1])));
 						}))));
 			}
 
@@ -9400,20 +9555,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 				}
 			}, []);
 			const VIEWS = [["overview", t("set.viewOverview")], ["clean", t("set.viewClean")], ["drill", t("set.viewDrill")]];
-			const _lang = cocoLangPref();
-			const langBtn = h("button", {
-				key: "__lang",
-				type: "button",
-				title: "界面语言 / UI language（AUTO = 跟随宿主）",
-				onClick: () => setCocoLangPref(_lang === "" ? "en" : _lang === "en" ? "zh" : ""),
-				style: {
-					marginLeft: "auto", padding: "4px 10px", borderRadius: 8, fontSize: 12,
-					cursor: "pointer", border: "0.5px solid var(--dsw-alias-border-l3, #ccc)",
-					background: "transparent", color: "inherit", fontWeight: 600,
-					letterSpacing: "0.02em",
-				},
-			}, _lang === "en" ? "EN" : _lang === "zh" ? "中文" : "AUTO");
-			const navBar = h("div", { style: { display: "flex", gap: 6, marginBottom: 12, alignItems: "center" } },
+			const navBar = h("div", { style: { display: "flex", gap: 6, marginBottom: 12 } },
 				VIEWS.map((pair) => h("button", {
 					key: pair[0],
 					type: "button",
@@ -9424,7 +9566,8 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						background: view === pair[0] ? "var(--dsw-alias-bg-layer-2, rgba(0,0,0,.05))" : "transparent",
 						color: "inherit", fontWeight: view === pair[0] ? 600 : 400
 					}
-				}, pair[1])));
+				}, pair[1])),
+				cocoLangButton({ marginLeft: "auto" }));
 			const flatDock = {
 				position: "static", inset: "auto", width: "100%", height: "auto", minWidth: 0, minHeight: 0,
 				maxWidth: "none", maxHeight: "none", boxShadow: "none", background: "transparent",
@@ -9465,7 +9608,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						borderRadius: 10, padding: "8px 12px", marginBottom: 12
 					}
 				},
-					h("b", null, "启动自检 " + selfCheck.ok + "/" + selfCheck.total),
+					h("b", null, t("page.selfCheck", { ok: selfCheck.ok, total: selfCheck.total })),
 					Object.entries(selfCheck.checks || {}).map(([k, v]) => h("span", {
 						key: k, title: v.detail,
 						style: {
@@ -9477,7 +9620,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 				h("div", { style: { display: "flex", alignItems: "baseline", gap: 12, marginBottom: 10 } },
 					h("h3", { style: { margin: 0, fontSize: 15 } }, "DSH-COCO"),
 					h("span", { style: muted }, st
-						? [st.surface || "-", " · ", String(st.patches_applied || 0), "/", String(st.patches_total || 0), " 生效"].join("")
+						? [st.surface || "-", " · ", String(st.patches_applied || 0), "/", String(st.patches_total || 0), " ", t("page.appliedShort")].join("")
 						: (busy ? t("set.loading") : "")),
 					h("button", {
 						type: "button",
@@ -9502,7 +9645,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 						return h("div", { style: Object.assign({}, card, { borderColor: color }) },
 							h("div", { style: { display: "flex", alignItems: "baseline", gap: 10 } },
 								h("span", { style: { fontSize: 12, color: color, fontWeight: 600 } }, label),
-								h("span", { style: muted }, g.files + " \u4e2a\u6587\u4ef6 \u00b7 " + (g.copyable || 0) + " \u4efd\u526f\u672c"),
+								h("span", { style: muted }, t("page.guardFiles", { files: g.files, copies: g.copyable || 0 })),
 								bad ? h("button", {
 									type: "button",
 									onClick: () => rollbackGuard(setGuardMsg),
@@ -9532,7 +9675,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 							key: k, style: { display: "flex", gap: 6, alignItems: "baseline" }
 						}, h("span", null, PATCH_TONE[k].mark),
 							h("b", { style: { fontSize: 16 } }, String(tally[k])),
-							h("span", { style: muted }, PATCH_TONE[k].label))))),
+							h("span", { style: muted }, t(PATCH_TONE[k].label)))))),
 				h("div", { style: card },
 					h("div", { style: Object.assign({}, muted, { marginBottom: 8 }) }, t("set.chain")),
 					(function () {
@@ -9578,7 +9721,7 @@ body[data-ds-dark-theme] .dshp-rewind-item span{color:var(--dsw-alias-label-tert
 								h("span", { style: { minWidth: 16 } }, tone.mark),
 								h("span", { style: { minWidth: 70, color: "var(--dsw-alias-label-tertiary)", fontFamily: "ui-monospace, monospace" } }, "#" + String(row.id)),
 								h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.title || ""),
-								h("span", { style: { color: tone.tone, minWidth: 72, textAlign: "right" } }, tone.label));
+								h("span", { style: { color: tone.tone, minWidth: 72, textAlign: "right" } }, t(tone.label)));
 						}))));
 		}
 
